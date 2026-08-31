@@ -5,13 +5,23 @@ import { Pill } from "../ui";
 
 /* ================= schema source of truth ================= */
 
-type Domain = "core" | "people" | "ops" | "money" | "content" | "comms" | "compliance";
+type Domain =
+  | "core"
+  | "scheduling"
+  | "timetracking"
+  | "tasks"
+  | "expenses"
+  | "training"
+  | "chat"
+  | "documents"
+  | "incidents";
+
 type RawField = [name: string, type: string, attrs?: string, rel?: string, comment?: string];
 
 interface Field {
   name: string;
   type: string;
-  attrs: string[];
+  attrs: string;
   rel?: string;
   comment?: string;
 }
@@ -26,379 +36,337 @@ interface EnumDef {
   values: string[];
 }
 
-const F = (r: RawField): Field => ({ name: r[0], type: r[1], attrs: r[2] ? r[2].split(" ") : [], rel: r[3], comment: r[4] });
+const F = (r: RawField): Field => ({ name: r[0], type: r[1], attrs: r[2] ?? "", rel: r[3], comment: r[4] });
+
+const SECT_LABEL: Record<Domain, string> = {
+  core: "Organizaciones y usuarios",
+  scheduling: "Scheduling",
+  timetracking: "Time Tracking",
+  tasks: "Tasks",
+  expenses: "Expenses",
+  training: "Training (TikTok style)",
+  chat: "Chat",
+  documents: "Documents & Digital Signature",
+  incidents: "Incidents (Anonymous reporting)",
+};
 
 const MODELS: Model[] = [
   {
-    name: "Organization", domain: "core", note: "Empresa cliente (grupo)",
+    name: "Organization", domain: "core", note: "Empresa cliente: plan, locale y zona horaria",
     fields: [
-      F(["id", "String", "@id @default(uuid())"]),
+      F(["id", "String", "@id @default(cuid())"]),
       F(["name", "String"]),
       F(["slug", "String", "@unique"]),
-      F(["plan", "Plan", "@default(STARTER)"]),
+      F(["logo", "String?"]),
+      F(["timezone", "String", '@default("America/Mexico_City")']),
+      F(["defaultLocale", "String", '@default("es")']),
+      F(["plan", "PlanType", "@default(BASIC)"]),
       F(["users", "User[]", undefined, "User"]),
-      F(["venues", "Venue[]", undefined, "Venue"]),
-      F(["courses", "TrainingCourse[]", undefined, "TrainingCourse"]),
+      F(["branches", "Branch[]", undefined, "Branch"]),
       F(["createdAt", "DateTime", "@default(now())"]),
     ],
   },
   {
-    name: "User", domain: "core", note: "Credenciales y roles (JWT + refresh)",
+    name: "Branch", domain: "core", note: "Sucursal con geolocalización",
     fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["email", "String", "@unique"]),
-      F(["passwordHash", "String"]),
-      F(["fullName", "String"]),
-      F(["role", "UserRole", "@default(EMPLOYEE)"]),
-      F(["orgId", "String"]),
-      F(["org", "Organization", "@relation(fields: [orgId], references: [id])", "Organization"]),
-      F(["refreshTokens", "RefreshToken[]", undefined, "RefreshToken"]),
-      F(["employee", "Employee?", undefined, "Employee"]),
-      F(["notifications", "Notification[]", undefined, "Notification"]),
-      F(["@@index([orgId, role])", ""]),
-    ],
-  },
-  {
-    name: "RefreshToken", domain: "core", note: "Sesiones revocables por dispositivo",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["token", "String", "@unique"]),
-      F(["userId", "String"]),
-      F(["user", "User", "@relation(fields: [userId], references: [id], onDelete: Cascade)", "User"]),
-      F(["device", "String?"]),
-      F(["expiresAt", "DateTime"]),
-      F(["revokedAt", "DateTime?"]),
-    ],
-  },
-  {
-    name: "Venue", domain: "core", note: "Sucursal: restaurante, hotel, retail…",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["orgId", "String"]),
-      F(["org", "Organization", "@relation(fields: [orgId], references: [id])", "Organization"]),
+      F(["id", "String", "@id @default(cuid())"]),
       F(["name", "String"]),
-      F(["type", "VenueType"]),
-      F(["city", "String"]),
-      F(["timezone", "String", '@default("America/Mexico_City")']),
-      F(["kiosks", "Kiosk[]", undefined, "Kiosk"]),
-      F(["employees", "Employee[]", undefined, "Employee"]),
-      F(["shifts", "Shift[]", undefined, "Shift"]),
+      F(["address", "String?"]),
+      F(["latitude", "Float?"]),
+      F(["longitude", "Float?"]),
+      F(["organizationId", "String"]),
+      F(["organization", "Organization", "@relation(fields: [organizationId], references: [id])", "Organization"]),
+      F(["employees", "User[]", undefined, "User"]),
       F(["tasks", "Task[]", undefined, "Task"]),
-      F(["payrollRuns", "PayrollRun[]", undefined, "PayrollRun"]),
-      F(["channels", "ChatChannel[]", undefined, "ChatChannel"]),
-      F(["@@index([orgId])", ""]),
+      F(["timeRecords", "TimeRecord[]", undefined, "TimeRecord"]),
     ],
   },
   {
-    name: "Kiosk", domain: "core", note: "Tablet de fichaje (Lock Task Mode)",
+    name: "User", domain: "core", note: "Usuarios y roles · del empleado al admin",
     fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["venueId", "String"]),
-      F(["venue", "Venue", "@relation(fields: [venueId], references: [id])", "Venue"]),
-      F(["name", "String"]),
-      F(["deviceToken", "String", "@unique"]),
-      F(["online", "Boolean", "@default(true)"]),
-      F(["lastSeen", "DateTime"]),
-    ],
-  },
-  {
-    name: "Employee", domain: "people", note: "Perfil operativo del colaborador",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["userId", "String?", "@unique"]),
-      F(["user", "User?", "@relation(fields: [userId], references: [id])", "User"]),
-      F(["venueId", "String"]),
-      F(["venue", "Venue", "@relation(fields: [venueId], references: [id])", "Venue"]),
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["email", "String", "@unique"]),
+      F(["password", "String"]),
       F(["firstName", "String"]),
       F(["lastName", "String"]),
-      F(["email", "String"]),
       F(["phone", "String?"]),
-      F(["jobTitle", "String"]),
-      F(["dept", "Dept"]),
-      F(["status", "EmployeeStatus", "@default(ACTIVE)"]),
-      F(["hourlyRate", "Decimal", "@db.Decimal(10,2)"]),
-      F(["languages", "Language[]"]),
-      F(["hiredAt", "DateTime"]),
-      F(["performance", "Int", "@default(70)"]),
-      F(["shifts", "Shift[]", undefined, "Shift"]),
-      F(["timeEntries", "TimeEntry[]", undefined, "TimeEntry"]),
+      F(["avatar", "String?"]),
+      F(["role", "UserRole", "@default(EMPLOYEE)"]),
+      F(["isActive", "Boolean", "@default(true)"]),
+      F(["preferredLang", "Language", "@default(ES)"]),
+      F(["organizationId", "String"]),
+      F(["organization", "Organization", "@relation(fields: [organizationId], references: [id])", "Organization"]),
+      F(["branchId", "String?"]),
+      F(["branch", "Branch?", "@relation(fields: [branchId], references: [id])", "Branch"]),
+      F(["// Relaciones", ""]),
+      F(["schedules", "Schedule[]", undefined, "Schedule"]),
+      F(["timeRecords", "TimeRecord[]", undefined, "TimeRecord"]),
       F(["expenses", "Expense[]", undefined, "Expense"]),
-      F(["tasksAssigned", "Task[]", undefined, "Task"]),
-      F(["courseProgress", "TrainingProgress[]", undefined, "TrainingProgress"]),
-      F(["messages", "ChatMessage[]", undefined, "ChatMessage"]),
-      F(["channels", "ChatChannel[]", undefined, "ChatChannel"]),
-      F(["signatures", "DocumentSignature[]", undefined, "DocumentSignature"]),
-      F(["@@index([venueId, dept])", ""]),
-    ],
-  },
-  {
-    name: "Shift", domain: "ops", note: "Turnos y horarios semanales",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["venueId", "String"]),
-      F(["venue", "Venue", "@relation(fields: [venueId], references: [id])", "Venue"]),
-      F(["employeeId", "String"]),
-      F(["employee", "Employee", "@relation(fields: [employeeId], references: [id])", "Employee"]),
-      F(["date", "DateTime", "@db.Date"]),
-      F(["start", "String", undefined, undefined, '"09:00"']),
-      F(["end", "String", undefined, undefined, '"17:00"']),
-      F(["type", "ShiftType"]),
-      F(["status", "ShiftStatus", "@default(SCHEDULED)"]),
-      F(["timeEntries", "TimeEntry[]", undefined, "TimeEntry"]),
-      F(["@@index([venueId, date])", ""]),
-    ],
-  },
-  {
-    name: "TimeEntry", domain: "ops", note: "Fichaje: entrada/salida con origen",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["employeeId", "String"]),
-      F(["employee", "Employee", "@relation(fields: [employeeId], references: [id])", "Employee"]),
-      F(["shiftId", "String?"]),
-      F(["shift", "Shift?", "@relation(fields: [shiftId], references: [id])", "Shift"]),
-      F(["clockIn", "DateTime"]),
-      F(["clockOut", "DateTime?"]),
-      F(["source", "ClockSource", "@default(APP)"]),
-      F(["biometricVerified", "Boolean", "@default(false)"]),
-      F(["status", "AttendanceStatus", "@default(ON_TIME)"]),
-      F(["@@index([employeeId, clockIn])", ""]),
-    ],
-  },
-  {
-    name: "Task", domain: "ops", note: "Tareas asignadas al equipo",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["venueId", "String"]),
-      F(["venue", "Venue", "@relation(fields: [venueId], references: [id])", "Venue"]),
-      F(["title", "String"]),
-      F(["description", "String?"]),
-      F(["priority", "Priority", "@default(MEDIUM)"]),
-      F(["status", "TaskStatus", "@default(TODO)"]),
-      F(["assigneeId", "String?"]),
-      F(["assignee", "Employee?", "@relation(fields: [assigneeId], references: [id])", "Employee"]),
-      F(["dueAt", "DateTime?"]),
+      F(["assignedTasks", "TaskAssignment[]", undefined, "TaskAssignment"]),
+      F(["chatMessages", "ChatMessage[]", undefined, "ChatMessage"]),
+      F(["documents", "DocumentSignature[]", undefined, "DocumentSignature"]),
+      F(["incidents", "Incident[]", '@relation("ReportedBy")', "Incident"]),
       F(["createdAt", "DateTime", "@default(now())"]),
+      F(["updatedAt", "DateTime", "@updatedAt"]),
     ],
   },
   {
-    name: "Checklist", domain: "ops", note: "Checklists de apertura y cierre",
+    name: "Schedule", domain: "scheduling", note: "Turnos programados por usuario y sucursal",
     fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["venueId", "String"]),
-      F(["title", "String"]),
-      F(["area", "Dept"]),
-      F(["items", "ChecklistItem[]", undefined, "ChecklistItem"]),
-    ],
-  },
-  {
-    name: "ChecklistItem", domain: "ops", note: "Pasos verificables del checklist",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["checklistId", "String"]),
-      F(["checklist", "Checklist", "@relation(fields: [checklistId], references: [id], onDelete: Cascade)", "Checklist"]),
-      F(["label", "String"]),
-      F(["order", "Int"]),
-      F(["done", "Boolean", "@default(false)"]),
-      F(["completedById", "String?"]),
-      F(["completedAt", "DateTime?"]),
-    ],
-  },
-  {
-    name: "PayrollRun", domain: "money", note: "Ejecución de nómina por periodo",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["venueId", "String"]),
-      F(["venue", "Venue", "@relation(fields: [venueId], references: [id])", "Venue"]),
-      F(["periodStart", "DateTime"]),
-      F(["periodEnd", "DateTime"]),
-      F(["status", "PayRunStatus", "@default(DRAFT)"]),
-      F(["total", "Decimal", "@db.Decimal(12,2) @default(0)"]),
-      F(["payslips", "Payslip[]", undefined, "Payslip"]),
-      F(["processedAt", "DateTime?"]),
-    ],
-  },
-  {
-    name: "Payslip", domain: "money", note: "Recibo individual de pago",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["runId", "String"]),
-      F(["run", "PayrollRun", "@relation(fields: [runId], references: [id])", "PayrollRun"]),
-      F(["employeeId", "String"]),
-      F(["employee", "Employee", "@relation(fields: [employeeId], references: [id])", "Employee"]),
-      F(["base", "Decimal"]),
-      F(["extras", "Decimal", "@default(0)"]),
-      F(["deductions", "Decimal", "@default(0)"]),
-      F(["net", "Decimal"]),
-      F(["status", "PayStatus", "@default(PENDING)"]),
-      F(["pdfUrl", "String?", undefined, undefined, "S3 / Cloudinary"]),
-      F(["@@unique([runId, employeeId])", ""]),
-    ],
-  },
-  {
-    name: "Expense", domain: "money", note: "Gastos con lectura OCR + IA",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["employeeId", "String"]),
-      F(["employee", "Employee", "@relation(fields: [employeeId], references: [id])", "Employee"]),
-      F(["venueId", "String"]),
-      F(["amount", "Decimal", "@db.Decimal(10,2)"]),
-      F(["category", "ExpenseCategory"]),
-      F(["note", "String?"]),
-      F(["receiptUrl", "String?"]),
-      F(["source", "ExpenseSource", "@default(MANUAL)"]),
-      F(["aiConfidence", "Float?", undefined, undefined, "confianza del OCR"]),
-      F(["status", "ExpenseStatus", "@default(PENDING)"]),
-      F(["createdAt", "DateTime", "@default(now())"]),
-      F(["@@index([venueId, status])", ""]),
-    ],
-  },
-  {
-    name: "TrainingCourse", domain: "content", note: "Micro-cursos del feed vertical",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["orgId", "String"]),
-      F(["org", "Organization", "@relation(fields: [orgId], references: [id])", "Organization"]),
-      F(["title", "String"]),
-      F(["description", "String"]),
-      F(["category", "TrainingCategory"]),
-      F(["durationSec", "Int"]),
-      F(["videoUrl", "String"]),
-      F(["coverUrl", "String"]),
-      F(["required", "Boolean", "@default(false)"]),
-      F(["progress", "TrainingProgress[]", undefined, "TrainingProgress"]),
-    ],
-  },
-  {
-    name: "TrainingProgress", domain: "content", note: "Avance y likes por colaborador",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["courseId", "String"]),
-      F(["course", "TrainingCourse", "@relation(fields: [courseId], references: [id])", "TrainingCourse"]),
-      F(["employeeId", "String"]),
-      F(["employee", "Employee", "@relation(fields: [employeeId], references: [id])", "Employee"]),
-      F(["secondsWatched", "Int", "@default(0)"]),
-      F(["liked", "Boolean", "@default(false)"]),
-      F(["completedAt", "DateTime?"]),
-      F(["@@unique([courseId, employeeId])", ""]),
-    ],
-  },
-  {
-    name: "ChatChannel", domain: "comms", note: "Canales de mensajería del equipo",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["venueId", "String"]),
-      F(["venue", "Venue", "@relation(fields: [venueId], references: [id])", "Venue"]),
-      F(["name", "String"]),
-      F(["members", "Employee[]", undefined, "Employee"]),
-      F(["messages", "ChatMessage[]", undefined, "ChatMessage"]),
-    ],
-  },
-  {
-    name: "ChatMessage", domain: "comms", note: "Mensajes en tiempo real (Socket.io)",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["channelId", "String"]),
-      F(["channel", "ChatChannel", "@relation(fields: [channelId], references: [id])", "ChatChannel"]),
-      F(["authorId", "String"]),
-      F(["author", "Employee", "@relation(fields: [authorId], references: [id])", "Employee"]),
-      F(["body", "String"]),
-      F(["sentAt", "DateTime", "@default(now())"]),
-      F(["@@index([channelId, sentAt])", ""]),
-    ],
-  },
-  {
-    name: "Notification", domain: "comms", note: "Push, email y SMS (BullMQ)",
-    fields: [
-      F(["id", "String", "@id @default(uuid())"]),
+      F(["id", "String", "@id @default(cuid())"]),
       F(["userId", "String"]),
       F(["user", "User", "@relation(fields: [userId], references: [id])", "User"]),
-      F(["channel", "NotifChannel", "@default(PUSH)"]),
-      F(["title", "String"]),
-      F(["body", "String"]),
-      F(["read", "Boolean", "@default(false)"]),
-      F(["sentAt", "DateTime", "@default(now())"]),
-      F(["@@index([userId, read])", ""]),
+      F(["branchId", "String"]),
+      F(["date", "DateTime"]),
+      F(["startTime", "DateTime"]),
+      F(["endTime", "DateTime"]),
+      F(["status", "ShiftStatus", "@default(SCHEDULED)"]),
+      F(["createdAt", "DateTime", "@default(now())"]),
     ],
   },
   {
-    name: "Document", domain: "compliance", note: "Contratos y políticas con versión",
+    name: "TimeRecord", domain: "timetracking", note: "Fichaje con foto, huella y geolocalización",
     fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["orgId", "String"]),
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["userId", "String"]),
+      F(["user", "User", "@relation(fields: [userId], references: [id])", "User"]),
+      F(["branchId", "String"]),
+      F(["branch", "Branch", "@relation(fields: [branchId], references: [id])", "Branch"]),
+      F(["type", "ClockType"]),
+      F(["timestamp", "DateTime", "@default(now())"]),
+      F(["photo", "String?", undefined, undefined, "Foto al fichar"]),
+      F(["fingerprintHash", "String?", undefined, undefined, "Hash biométrico"]),
+      F(["deviceId", "String?", undefined, undefined, "ID de la tablet/dispositivo"]),
+      F(["latitude", "Float?"]),
+      F(["longitude", "Float?"]),
+    ],
+  },
+  {
+    name: "Task", domain: "tasks", note: "Tareas recurrentes con título multiidioma (Json)",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["title", "Json", undefined, undefined, '{ es: "", pt: "", en: "" }']),
+      F(["description", "Json?"]),
+      F(["recurrence", "Recurrence"]),
+      F(["priority", "TaskPriority", "@default(MEDIUM)"]),
+      F(["branchId", "String?"]),
+      F(["branch", "Branch?", "@relation(fields: [branchId], references: [id])", "Branch"]),
+      F(["checklist", "ChecklistItem[]", undefined, "ChecklistItem"]),
+      F(["assignments", "TaskAssignment[]", undefined, "TaskAssignment"]),
+      F(["createdBy", "String"]),
+      F(["createdAt", "DateTime", "@default(now())"]),
+    ],
+  },
+  {
+    name: "ChecklistItem", domain: "tasks", note: "Pasos del checklist · foto o QR requeridos",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["taskId", "String"]),
+      F(["task", "Task", "@relation(fields: [taskId], references: [id])", "Task"]),
+      F(["text", "Json", undefined, undefined, '{ es: "", pt: "", en: "" }']),
+      F(["order", "Int"]),
+      F(["requiresPhoto", "Boolean", "@default(false)"]),
+      F(["requiresQR", "Boolean", "@default(false)"]),
+    ],
+  },
+  {
+    name: "TaskAssignment", domain: "tasks", note: "Asignación con evidencia fotográfica",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["taskId", "String"]),
+      F(["task", "Task", "@relation(fields: [taskId], references: [id])", "Task"]),
+      F(["userId", "String"]),
+      F(["user", "User", "@relation(fields: [userId], references: [id])", "User"]),
+      F(["status", "TaskStatus", "@default(PENDING)"]),
+      F(["dueDate", "DateTime?"]),
+      F(["completedAt", "DateTime?"]),
+      F(["evidence", "String[]", undefined, undefined, "URLs de fotos/videos"]),
+      F(["notes", "String?"]),
+    ],
+  },
+  {
+    name: "Expense", domain: "expenses", note: "Gastos con análisis IA del ticket",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["userId", "String"]),
+      F(["user", "User", "@relation(fields: [userId], references: [id])", "User"]),
+      F(["amount", "Decimal", "@db.Decimal(10, 2)"]),
+      F(["currency", "String", '@default("MXN")']),
+      F(["category", "String?"]),
+      F(["receiptImage", "String", undefined, undefined, "URL del ticket"]),
+      F(["aiAnalysis", "Json?", undefined, undefined, "Resultado del análisis IA"]),
+      F(["status", "ExpenseStatus", "@default(PENDING)"]),
+      F(["aiVerdict", "AIVerdict?"]),
+      F(["items", "ExpenseItem[]", undefined, "ExpenseItem"]),
+      F(["approvedBy", "String?"]),
+      F(["approvedAt", "DateTime?"]),
+      F(["createdAt", "DateTime", "@default(now())"]),
+    ],
+  },
+  {
+    name: "ExpenseItem", domain: "expenses", note: "Líneas del ticket · la IA marca gastos personales",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["expenseId", "String"]),
+      F(["expense", "Expense", "@relation(fields: [expenseId], references: [id])", "Expense"]),
       F(["name", "String"]),
-      F(["kind", "DocKind"]),
-      F(["version", "String", '@default("v1.0")']),
-      F(["fileUrl", "String"]),
-      F(["expiresAt", "DateTime?"]),
-      F(["status", "DocStatus", "@default(DRAFT)"]),
-      F(["signatures", "DocumentSignature[]", undefined, "DocumentSignature"]),
-      F(["@@index([orgId, kind])", ""]),
+      F(["price", "Decimal", "@db.Decimal(10, 2)"]),
+      F(["isPersonal", "Boolean", "@default(false)", undefined, "Marcado por IA como gasto personal"]),
     ],
   },
   {
-    name: "DocumentSignature", domain: "compliance", note: "Firma digital con evidencia",
+    name: "TrainingVideo", domain: "training", note: "Micro-videos de capacitación (TikTok)",
     fields: [
-      F(["id", "String", "@id @default(uuid())"]),
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["title", "Json", undefined, undefined, '{ es: "", pt: "", en: "" }']),
+      F(["description", "Json?"]),
+      F(["videoUrl", "String"]),
+      F(["thumbnail", "String"]),
+      F(["duration", "Int", undefined, undefined, "segundos"]),
+      F(["category", "String"]),
+      F(["isRequired", "Boolean", "@default(false)"]),
+      F(["views", "TrainingView[]", undefined, "TrainingView"]),
+      F(["createdBy", "String"]),
+      F(["createdAt", "DateTime", "@default(now())"]),
+    ],
+  },
+  {
+    name: "TrainingView", domain: "training", note: "Porcentaje visto por usuario",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["videoId", "String"]),
+      F(["video", "TrainingVideo", "@relation(fields: [videoId], references: [id])", "TrainingVideo"]),
+      F(["userId", "String"]),
+      F(["watchedPct", "Float", undefined, undefined, "Porcentaje visto"]),
+      F(["completed", "Boolean", "@default(false)"]),
+      F(["viewedAt", "DateTime", "@default(now())"]),
+    ],
+  },
+  {
+    name: "ChatRoom", domain: "chat", note: "Salas directas, grupos y broadcast",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["name", "String?"]),
+      F(["type", "ChatType"]),
+      F(["branchId", "String?"]),
+      F(["members", "ChatMember[]", undefined, "ChatMember"]),
+      F(["messages", "ChatMessage[]", undefined, "ChatMessage"]),
+      F(["createdAt", "DateTime", "@default(now())"]),
+    ],
+  },
+  {
+    name: "ChatMember", domain: "chat", note: "Membresía y rol dentro de la sala",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["roomId", "String"]),
+      F(["room", "ChatRoom", "@relation(fields: [roomId], references: [id])", "ChatRoom"]),
+      F(["userId", "String"]),
+      F(["role", "ChatRole", "@default(MEMBER)"]),
+      F(["joinedAt", "DateTime", "@default(now())"]),
+    ],
+  },
+  {
+    name: "ChatMessage", domain: "chat", note: "Texto, media y ubicación · recibos de lectura",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["roomId", "String"]),
+      F(["room", "ChatRoom", "@relation(fields: [roomId], references: [id])", "ChatRoom"]),
+      F(["senderId", "String"]),
+      F(["sender", "User", "@relation(fields: [senderId], references: [id])", "User"]),
+      F(["type", "MessageType", "@default(TEXT)"]),
+      F(["content", "String?", undefined, undefined, "Texto o URL de media"]),
+      F(["metadata", "Json?", undefined, undefined, "Para ubicación, etc."]),
+      F(["readBy", "String[]", undefined, undefined, "IDs de usuarios que leyeron"]),
+      F(["createdAt", "DateTime", "@default(now())"]),
+    ],
+  },
+  {
+    name: "Document", domain: "documents", note: "PDFs que requieren firma digital",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["title", "Json"]),
+      F(["content", "String", undefined, undefined, "URL del PDF"]),
+      F(["category", "String"]),
+      F(["requiresSignature", "Boolean", "@default(true)"]),
+      F(["signatures", "DocumentSignature[]", undefined, "DocumentSignature"]),
+      F(["createdBy", "String"]),
+      F(["createdAt", "DateTime", "@default(now())"]),
+    ],
+  },
+  {
+    name: "DocumentSignature", domain: "documents", note: "Firma con imagen, IP y dispositivo",
+    fields: [
+      F(["id", "String", "@id @default(cuid())"]),
       F(["documentId", "String"]),
       F(["document", "Document", "@relation(fields: [documentId], references: [id])", "Document"]),
-      F(["signerId", "String"]),
-      F(["signer", "Employee", "@relation(fields: [signerId], references: [id])", "Employee"]),
-      F(["signatureUrl", "String"]),
-      F(["ip", "String?"]),
-      F(["signedAt", "DateTime", "@default(now())"]),
+      F(["userId", "String"]),
+      F(["user", "User", "@relation(fields: [userId], references: [id])", "User"]),
+      F(["signedAt", "DateTime?"]),
+      F(["signatureImage", "String?", undefined, undefined, "Imagen de la firma"]),
+      F(["ipAddress", "String?"]),
+      F(["deviceInfo", "String?"]),
     ],
   },
   {
-    name: "Incident", domain: "compliance", note: "Denuncias anónimas del canal ético",
+    name: "Incident", domain: "incidents", note: "Denuncias anónimas con evidencia",
     fields: [
-      F(["id", "String", "@id @default(uuid())"]),
-      F(["orgId", "String"]),
-      F(["caseCode", "String", "@unique", undefined, "CASO-XXXX"]),
+      F(["id", "String", "@id @default(cuid())"]),
+      F(["title", "String"]),
+      F(["description", "String"]),
       F(["category", "IncidentCategory"]),
-      F(["summary", "String"]),
-      F(["reporterId", "String?", undefined, undefined, "null = anónimo"]),
-      F(["status", "IncidentStatus", "@default(RECEIVED)"]),
+      F(["evidence", "String[]", undefined, undefined, "URLs de fotos/videos"]),
+      F(["status", "IncidentStatus", "@default(OPEN)"]),
+      F(["reportedBy", "String?", undefined, undefined, "Puede ser null si es anónimo"]),
+      F(["reporter", "User?", '@relation("ReportedBy", fields: [reportedBy], references: [id])', "User"]),
+      F(["isAnonymous", "Boolean", "@default(true)"]),
+      F(["branchId", "String?"]),
       F(["createdAt", "DateTime", "@default(now())"]),
       F(["resolvedAt", "DateTime?"]),
+      F(["resolution", "String?"]),
     ],
   },
 ];
 
 const ENUMS: EnumDef[] = [
-  { name: "Plan", values: ["STARTER", "PRO", "ENTERPRISE"] },
-  { name: "UserRole", values: ["OWNER", "ADMIN", "MANAGER", "EMPLOYEE"] },
-  { name: "VenueType", values: ["RESTAURANT", "HOTEL", "RETAIL", "TOURISM"] },
+  { name: "UserRole", values: ["EMPLOYEE", "SECTION_MANAGER", "GENERAL_MANAGER", "ADMIN"] },
   { name: "Language", values: ["ES", "PT", "EN"] },
-  { name: "Dept", values: ["KITCHEN", "HALL", "RECEPTION", "BAR", "FLOORS"] },
-  { name: "EmployeeStatus", values: ["ACTIVE", "VACATION", "ON_LEAVE", "TERMINATED"] },
-  { name: "ShiftType", values: ["MORNING", "AFTERNOON", "NIGHT"] },
-  { name: "ShiftStatus", values: ["SCHEDULED", "CONFIRMED", "SWAPPED", "CANCELLED"] },
-  { name: "ClockSource", values: ["KIOSK", "APP", "WEB", "MANAGER"] },
-  { name: "AttendanceStatus", values: ["ON_TIME", "LATE", "ABSENT", "ON_SHIFT", "ON_BREAK"] },
-  { name: "PayRunStatus", values: ["DRAFT", "PROCESSING", "PAID"] },
-  { name: "PayStatus", values: ["PENDING", "PROCESSING", "PAID"] },
-  { name: "ExpenseCategory", values: ["TRANSPORT", "FOOD", "SUPPLIES", "UNIFORM", "OTHER"] },
-  { name: "ExpenseSource", values: ["OCR", "MANUAL"] },
-  { name: "ExpenseStatus", values: ["PENDING", "APPROVED", "REJECTED"] },
-  { name: "Priority", values: ["LOW", "MEDIUM", "HIGH"] },
-  { name: "TaskStatus", values: ["TODO", "DOING", "DONE"] },
-  { name: "TrainingCategory", values: ["SERVICE", "SAFETY", "HYGIENE", "LANGUAGES"] },
-  { name: "DocKind", values: ["CONTRACT", "POLICY", "CERTIFICATE", "NDA"] },
-  { name: "DocStatus", values: ["DRAFT", "PENDING_SIGNING", "SIGNED", "ARCHIVED"] },
-  { name: "IncidentCategory", values: ["SAFETY", "CONDUCT", "EQUIPMENT"] },
-  { name: "IncidentStatus", values: ["RECEIVED", "IN_REVIEW", "RESOLVED"] },
-  { name: "NotifChannel", values: ["PUSH", "EMAIL", "SMS"] },
+  { name: "PlanType", values: ["BASIC", "CLASSIC", "ENTERPRISE"] },
+  { name: "ShiftStatus", values: ["SCHEDULED", "CONFIRMED", "COMPLETED", "ABSENT"] },
+  { name: "ClockType", values: ["CLOCK_IN", "CLOCK_OUT"] },
+  { name: "Recurrence", values: ["ONCE", "DAILY", "WEEKLY", "MONTHLY"] },
+  { name: "TaskPriority", values: ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+  { name: "TaskStatus", values: ["PENDING", "IN_PROGRESS", "COMPLETED", "BLOCKED", "OVERDUE"] },
+  { name: "ExpenseStatus", values: ["PENDING", "AI_REVIEWING", "APPROVED", "REJECTED", "FLAGGED"] },
+  { name: "AIVerdict", values: ["APPROVED", "REJECTED", "NEEDS_REVIEW"] },
+  { name: "ChatType", values: ["DIRECT", "GROUP", "BROADCAST"] },
+  { name: "ChatRole", values: ["ADMIN", "MEMBER"] },
+  { name: "MessageType", values: ["TEXT", "IMAGE", "VIDEO", "AUDIO", "FILE", "LOCATION", "SYSTEM"] },
+  { name: "IncidentCategory", values: ["SAFETY", "HARASSMENT", "THEFT", "MAINTENANCE", "OTHER"] },
+  { name: "IncidentStatus", values: ["OPEN", "INVESTIGATING", "RESOLVED", "CLOSED"] },
 ];
 
-const DOMAINS: Domain[] = ["core", "people", "ops", "money", "content", "comms", "compliance"];
+const DOMAINS: Domain[] = ["core", "scheduling", "timetracking", "tasks", "expenses", "training", "chat", "documents", "incidents"];
 const DOMAIN_COLOR: Record<Domain, string> = {
   core: "#256b52",
-  people: "#54688c",
-  ops: "#e89f2e",
-  money: "#2e7d8c",
-  content: "#7b5ea7",
-  comms: "#ce5638",
-  compliance: "#1b5a43",
+  scheduling: "#e89f2e",
+  timetracking: "#2e7d8c",
+  tasks: "#54688c",
+  expenses: "#ce5638",
+  training: "#7b5ea7",
+  chat: "#a34d75",
+  documents: "#144935",
+  incidents: "#b04327",
+};
+const DOMAINS_I18N: Record<Domain, string> = {
+  core: "dm.dom.core",
+  scheduling: "nav.scheduling",
+  timetracking: "nav.timetracking",
+  tasks: "nav.tasks",
+  expenses: "nav.expenses",
+  training: "nav.training",
+  chat: "nav.chat",
+  documents: "nav.documents",
+  incidents: "nav.incidents",
 };
 
 /* ================= code generation ================= */
@@ -427,36 +395,47 @@ function buildLines(): { lines: CodeLine[]; ranges: Record<string, [number, numb
   const lines: CodeLine[] = [];
   const ranges: Record<string, [number, number]> = {};
   const push = (parts: Part[], model?: string) => {
-    lines.push({ parts, plain: parts.map((p) => p.text).join(" "), model });
+    lines.push({ parts, plain: parts.map((p) => p.text).join(""), model });
   };
 
-  push([{ text: "// StaffHub 360 — schema principal", cls: "tok-c" }]);
-  push([{ text: "// PostgreSQL (relacional) · Redis (caché y sesiones)", cls: "tok-c" }]);
+  push([{ text: "// StaffHub 360 · modelo de datos principal", cls: "tok-c" }]);
+  push([{ text: "// PostgreSQL + Prisma · Redis para sesiones y caché", cls: "tok-c" }]);
   push([{ text: "", cls: "" }]);
   push([{ text: "generator", cls: "tok-k" }, { text: " client {", cls: "tok-b" }]);
-  push([{ text: "  provider", cls: "tok-f" }, { text: " =", cls: "tok-b" }, { text: ' "prisma-client-js"', cls: "tok-s" }]);
+  push([{ text: "  provider ", cls: "tok-f" }, { text: "= ", cls: "tok-b" }, { text: '"prisma-client-js"', cls: "tok-s" }]);
   push([{ text: "}", cls: "tok-b" }]);
   push([{ text: "", cls: "" }]);
   push([{ text: "datasource", cls: "tok-k" }, { text: " db {", cls: "tok-b" }]);
-  push([{ text: "  provider", cls: "tok-f" }, { text: " =", cls: "tok-b" }, { text: ' "postgresql"', cls: "tok-s" }]);
-  push([{ text: "  url", cls: "tok-f" }, { text: "     =", cls: "tok-b" }, { text: ' env("DATABASE_URL")', cls: "tok-s" }]);
+  push([{ text: "  provider ", cls: "tok-f" }, { text: "= ", cls: "tok-b" }, { text: '"postgresql"', cls: "tok-s" }]);
+  push([{ text: "  url      ", cls: "tok-f" }, { text: "= ", cls: "tok-b" }, { text: 'env("DATABASE_URL")', cls: "tok-s" }]);
   push([{ text: "}", cls: "tok-b" }]);
 
+  let prevDomain: Domain | null = null;
   for (const m of MODELS) {
     push([{ text: "", cls: "" }]);
+    if (m.domain !== prevDomain) {
+      push([{ text: "// " + SECT_LABEL[m.domain], cls: "tok-c" }]);
+      prevDomain = m.domain;
+    }
     const start = lines.length;
     push([{ text: "model", cls: "tok-k" }, { text: " " + m.name, cls: "tok-n" }, { text: " {", cls: "tok-b" }], m.name);
+
+    const real = m.fields.filter((f) => !f.name.startsWith("//"));
+    const maxName = Math.max(...real.map((f) => f.name.length));
+    const maxType = Math.max(...real.map((f) => f.type.length));
+
     for (const f of m.fields) {
-      const parts: Part[] = [];
-      if (f.name.startsWith("@@")) {
-        parts.push({ text: "  " + f.name, cls: "tok-a" });
-      } else {
-        parts.push({ text: "  " + f.name, cls: "tok-f" });
-        parts.push({ text: " " + f.type, cls: typeCls(f.type) });
-        for (const a of f.attrs) parts.push({ text: " " + a, cls: "tok-a" });
-        if (f.rel) parts.push({ text: "  → " + f.rel, cls: "tok-rel" });
+      if (f.name.startsWith("//")) {
+        push([{ text: "  " + f.name, cls: "tok-c" }], m.name);
+        continue;
       }
-      if (f.comment) parts.push({ text: "  // " + f.comment, cls: "tok-c" });
+      const parts: Part[] = [
+        { text: "  " + f.name.padEnd(maxName + 1), cls: f.name.startsWith("@@") ? "tok-a" : "tok-f" },
+      ];
+      parts.push({ text: f.type.padEnd(maxType + 1), cls: typeCls(f.type) });
+      if (f.attrs) parts.push({ text: f.attrs, cls: "tok-a" });
+      if (f.rel) parts.push({ text: "  → " + f.rel, cls: "tok-rel" });
+      if (f.comment) parts.push({ text: " // " + f.comment, cls: "tok-c" });
       push(parts, m.name);
     }
     push([{ text: "}", cls: "tok-b" }], m.name);
@@ -464,25 +443,20 @@ function buildLines(): { lines: CodeLine[]; ranges: Record<string, [number, numb
   }
 
   push([{ text: "", cls: "" }]);
-  push([{ text: "// ── enumeradores ──────────────────────────────", cls: "tok-c" }]);
+  push([{ text: "// ── Enums ─────────────────────────────────────", cls: "tok-c" }]);
   for (const e of ENUMS) {
     push([{ text: "", cls: "" }]);
     push([{ text: "enum", cls: "tok-k" }, { text: " " + e.name, cls: "tok-n" }, { text: " {", cls: "tok-b" }]);
-    push([{ text: "  " + e.values.join(" "), cls: "tok-te" }]);
+    push([{ text: "  " + e.values.join("  "), cls: "tok-te" }]);
     push([{ text: "}", cls: "tok-b" }]);
   }
 
   return { lines, ranges };
 }
 
-const DOMAINS_I18N: Record<Domain, string> = {
-  core: "dm.dom.core", people: "dm.dom.people", ops: "dm.dom.ops", money: "dm.dom.money",
-  content: "dm.dom.content", comms: "dm.dom.comms", compliance: "dm.dom.compliance",
-};
-
 export default function DataModel({ notify }: { notify: (m: string) => void }) {
   const { t } = useI18n();
-  const [selected, setSelected] = useState<string | null>("Employee");
+  const [selected, setSelected] = useState<string | null>("User");
   const [domainFilter, setDomainFilter] = useState<Domain | "all">("all");
   const [search, setSearch] = useState("");
   const editorRef = useRef<HTMLDivElement>(null);
@@ -523,10 +497,10 @@ export default function DataModel({ notify }: { notify: (m: string) => void }) {
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(plainSchema);
-      notify(t("dm.copied"));
     } catch {
-      notify(t("dm.copied"));
+      /* noop */
     }
+    notify(t("dm.copied"));
   };
 
   const download = () => {
@@ -547,9 +521,10 @@ export default function DataModel({ notify }: { notify: (m: string) => void }) {
       {/* header */}
       <div className="flex flex-wrap items-end justify-between gap-3 anim-fade-up">
         <div>
-          <h1 className="font-display font-extrabold text-[28px] tracking-tight text-ink leading-none flex items-center gap-3">
+          <h1 className="font-display font-extrabold text-[28px] tracking-tight text-ink leading-none flex items-center gap-3 flex-wrap">
             Prisma Schema
-            <Pill tone="pine"><IDatabase size={11} /> PostgreSQL 16</Pill>
+            <Pill tone="pine"><IDatabase size={11} /> PostgreSQL</Pill>
+            <Pill tone="amber">cuid()</Pill>
           </h1>
           <p className="text-[13.5px] text-mute mt-1.5">{t("dm.sub")}</p>
         </div>
@@ -569,7 +544,7 @@ export default function DataModel({ notify }: { notify: (m: string) => void }) {
           { v: MODELS.length, l: t("dm.models"), c: "#256b52" },
           { v: ENUMS.length, l: t("dm.enums"), c: "#2e7d8c" },
           { v: relationCount, l: t("dm.relations"), c: "#e89f2e" },
-          { v: 23, l: t("dm.migrations"), c: "#7b5ea7" },
+          { v: DOMAINS.length, l: t("dm.domains"), c: "#7b5ea7" },
         ].map((s) => (
           <div key={s.l} className="flex items-center gap-3">
             <span className="w-10 h-10 rounded-xl flex items-center justify-center font-display font-extrabold text-[19px] text-white" style={{ background: s.c }}>
@@ -618,6 +593,7 @@ export default function DataModel({ notify }: { notify: (m: string) => void }) {
               const isSel = selected === m.name;
               const dim = related && !related.has(m.name);
               const rels = m.fields.filter((f) => f.rel).map((f) => f.rel as string);
+              const fieldCount = m.fields.filter((f) => !f.name.startsWith("//")).length;
               return (
                 <button
                   key={m.name}
@@ -629,7 +605,7 @@ export default function DataModel({ notify }: { notify: (m: string) => void }) {
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-[4px] shrink-0" style={{ background: DOMAIN_COLOR[m.domain] }} />
                     <span className="font-mono font-bold text-[13.5px] text-ink">{m.name}</span>
-                    <span className="ml-auto text-[10.5px] font-semibold text-mute font-mono">{m.fields.length} {t("dm.fields")}</span>
+                    <span className="ml-auto text-[10.5px] font-semibold text-mute font-mono">{fieldCount} {t("dm.fields")}</span>
                   </div>
                   <div className="text-[11.5px] text-mute mt-1">{m.note}</div>
                   {rels.length > 0 && (
