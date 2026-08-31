@@ -225,6 +225,21 @@ export const ILayers = make(
 
 export const IDot = make(<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />);
 
+export const ICopy = make(
+  <>
+    <rect x="9" y="9" width="11" height="11" rx="2" />
+    <path d="M5 15H4.5A1.5 1.5 0 0 1 3 13.5v-9A1.5 1.5 0 0 1 4.5 3h9A1.5 1.5 0 0 1 15 4.5V5" />
+  </>,
+);
+
+export const IDatabase = make(
+  <>
+    <ellipse cx="12" cy="5.5" rx="7.5" ry="2.8" />
+    <path d="M4.5 5.5v13c0 1.55 3.36 2.8 7.5 2.8s7.5-1.25 7.5-2.8v-13" />
+    <path d="M4.5 12c0 1.55 3.36 2.8 7.5 2.8s7.5-1.25 7.5-2.8" />
+  </>,
+);
+
 export const IUser = make(
   <>
     <circle cx="12" cy="8" r="3.6" />

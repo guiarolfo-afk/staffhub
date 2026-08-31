@@ -23,6 +23,7 @@ import {
   IChevD,
   IClipboard,
   IClock,
+  IDatabase,
   IGrid,
   ILogout,
   IPhone2,
@@ -41,6 +42,7 @@ import { Avatar, LangSwitch, Wordmark, useNow } from "./ui";
 import Attendance from "./views/Attendance";
 import ChatView from "./views/ChatView";
 import Dashboard from "./views/Dashboard";
+import DataModel from "./views/DataModel";
 import { KioskPreview } from "./views/DevicePreviews";
 import Documents from "./views/Documents";
 import Employees from "./views/Employees";
@@ -67,7 +69,8 @@ type View =
   | "documents"
   | "incidents"
   | "reports"
-  | "mobile";
+  | "mobile"
+  | "dataModel";
 interface Toast {
   id: number;
   msg: string;
@@ -197,6 +200,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       ],
     },
     { section: t("nav.analysis"), items: [{ id: "reports", icon: IChart, label: t("nav.reports") }] },
+    { section: t("nav.system"), items: [{ id: "dataModel", icon: IDatabase, label: t("nav.dataModel") }] },
   ];
 
   const saveEmployee = (e: Employee, isNew: boolean) => {
@@ -500,6 +504,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
                 attendance={attendance}
               />
             )}
+            {view === "dataModel" && <DataModel notify={notify} />}
           </div>
         </main>
       </div>

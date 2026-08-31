@@ -322,3 +322,16 @@ body {
 .stagger > *:nth-child(6) { animation-delay: 0.27s; }
 .stagger > *:nth-child(7) { animation-delay: 0.32s; }
 .stagger > *:nth-child(8) { animation-delay: 0.37s; }
+
+/* ---------- prisma editor tokens ---------- */
+.tok-k { color: #f0b24e; font-weight: 700; }
+.tok-n { color: #ffffff; font-weight: 700; }
+.tok-b { color: #5c7264; }
+.tok-f { color: #d5e4d9; }
+.tok-t { color: #8fd0bb; }
+.tok-te { color: #8fbcd0; }
+.tok-tm { color: #f7c877; }
+.tok-a { color: #9ed0b8; }
+.tok-s { color: #e8a08c; }
+.tok-c { color: #5d7263; font-style: italic; }
+.tok-rel { color: #c77f1b; font-style: italic; opacity: 0.9; }
