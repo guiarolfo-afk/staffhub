@@ -244,7 +244,19 @@ body {
   50% { transform: translateY(-7px); }
 }
 
+@keyframes pushDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .anim-fade-up { animation: fadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-push-down { animation: pushDown 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .anim-pop { animation: popIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .anim-slide-in { animation: slideIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .anim-shake { animation: shakeX 0.4s ease both; }

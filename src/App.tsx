@@ -41,12 +41,13 @@ import { Avatar, LangSwitch, Wordmark, useNow } from "./ui";
 import Attendance from "./views/Attendance";
 import ChatView from "./views/ChatView";
 import Dashboard from "./views/Dashboard";
-import { KioskPreview, PhonePreview } from "./views/DevicePreviews";
+import { KioskPreview } from "./views/DevicePreviews";
 import Documents from "./views/Documents";
 import Employees from "./views/Employees";
 import Expenses from "./views/Expenses";
 import Incidents from "./views/Incidents";
 import Login from "./views/Login";
+import MobileLab from "./views/MobileLab";
 import Payroll from "./views/Payroll";
 import Reports from "./views/Reports";
 import Schedule from "./views/Schedule";
@@ -65,7 +66,8 @@ type View =
   | "training"
   | "documents"
   | "incidents"
-  | "reports";
+  | "reports"
+  | "mobile";
 interface Toast {
   id: number;
   msg: string;
@@ -117,7 +119,6 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [q, setQ] = useState("");
   const [focusId, setFocusId] = useState<string | null>(null);
-  const [phoneOpen, setPhoneOpen] = useState(false);
   const [kioskOpen, setKioskOpen] = useState(false);
   const [venue, setVenue] = useState<Venue>(VENUES[0]);
   const [venueOpen, setVenueOpen] = useState(false);
@@ -247,10 +248,17 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             <div className="label-xs !text-pine-200/50 px-2.5 mb-1.5">{t("nav.ecosystem")}</div>
             <div className="space-y-0.5">
               <button
-                onClick={() => setPhoneOpen(true)}
-                className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[13px] font-semibold text-pine-200/75 hover:text-white hover:bg-white/[0.06] transition-all cursor-pointer"
+                onClick={() => setView("mobile")}
+                className={`relative w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[13px] font-semibold transition-all cursor-pointer ${
+                  view === "mobile" ? "bg-white/10 text-white" : "text-pine-200/75 hover:text-white hover:bg-white/[0.06]"
+                }`}
               >
-                <IPhone2 size={16} />
+                <span
+                  className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full bg-marigold-400 transition-all ${
+                    view === "mobile" ? "h-5 opacity-100" : "h-0 opacity-0"
+                  }`}
+                />
+                <IPhone2 size={16} className={view === "mobile" ? "text-marigold-300" : ""} />
                 {t("nav.employeeApp")}
                 <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-marigold-300/90 border border-marigold-400/40 rounded-full px-1.5 py-0.5">
                   {t("login.mobile")}
@@ -445,7 +453,12 @@ function Shell({ onLogout }: { onLogout: () => void }) {
               {item.label}
             </button>
           ))}
-          <button onClick={() => setPhoneOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold text-inksoft hover:bg-pine-50 whitespace-nowrap cursor-pointer">
+          <button
+            onClick={() => setView("mobile")}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              view === "mobile" ? "bg-pine-600 text-white" : "text-inksoft hover:bg-pine-50"
+            }`}
+          >
             <IPhone2 size={14} /> {t("nav.employeeApp")}
           </button>
           <button onClick={() => setKioskOpen(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold text-inksoft hover:bg-pine-50 whitespace-nowrap cursor-pointer">
@@ -478,12 +491,12 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             {view === "documents" && <Documents notify={notify} />}
             {view === "incidents" && <Incidents notify={notify} />}
             {view === "reports" && <Reports employees={employees} notify={notify} />}
+            {view === "mobile" && <MobileLab onExit={() => setView("dashboard")} />}
           </div>
         </main>
       </div>
 
       {/* device previews */}
-      {phoneOpen && <PhonePreview onClose={() => setPhoneOpen(false)} />}
       {kioskOpen && <KioskPreview onClose={() => setKioskOpen(false)} />}
 
       {/* toasts */}
