@@ -12,6 +12,7 @@ import {
   type Venue,
 } from "./data";
 import { LangProvider, useI18n } from "./i18n";
+import { canAccess, ROLE_COLOR, ROLE_ORDER, ROLE_VIEWS, type Role } from "./rbac";
 import {
   IBanknote,
   IBell,
@@ -26,6 +27,7 @@ import {
   IDatabase,
   IGrid,
   ILayers,
+  ILock,
   ILogout,
   IPhone2,
   IPlay,
@@ -41,6 +43,7 @@ import {
 } from "./icons";
 import { Avatar, LangSwitch, Wordmark, useNow } from "./ui";
 import Attendance from "./views/Attendance";
+import Blueprint from "./views/Blueprint";
 import ChatView from "./views/ChatView";
 import Dashboard from "./views/Dashboard";
 import DataModel from "./views/DataModel";
@@ -73,7 +76,8 @@ type View =
   | "reports"
   | "mobile"
   | "dataModel"
-  | "ecosystem";
+  | "ecosystem"
+  | "blueprint";
 interface Toast {
   id: number;
   msg: string;
@@ -128,8 +132,29 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   const [kioskOpen, setKioskOpen] = useState(false);
   const [venue, setVenue] = useState<Venue>(VENUES[0]);
   const [venueOpen, setVenueOpen] = useState(false);
+  const [role, setRole] = useState<Role>(() => {
+    try {
+      const r = localStorage.getItem("sh360-role");
+      if (r === "employee" || r === "section" || r === "manager" || r === "admin") return r;
+    } catch {
+      /* noop */
+    }
+    return "admin";
+  });
+  const [roleMenu, setRoleMenu] = useState(false);
   const toastId = useRef(0);
   const tickCount = useRef(0);
+
+  const changeRole = (r: Role) => {
+    setRole(r);
+    setRoleMenu(false);
+    try {
+      localStorage.setItem("sh360-role", r);
+    } catch {
+      /* noop */
+    }
+    notify(`${t("rb.viewingAs")} ${t("role." + r)}`);
+  };
 
   const notify = (msg: string, kind: "ok" | "warn" = "ok") => {
     const id = ++toastId.current;
@@ -162,6 +187,11 @@ function Shell({ onLogout }: { onLogout: () => void }) {
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employees, t]);
+
+  /* si el rol activo no permite la vista actual, volver al dashboard */
+  useEffect(() => {
+    if (!canAccess(role, view)) setView("dashboard");
+  }, [role, view]);
 
   const unread = notifs.filter((n) => !n.read).length;
 
@@ -207,7 +237,13 @@ function Shell({ onLogout }: { onLogout: () => void }) {
       ],
     },
     { section: t("nav.analysis"), items: [{ id: "reports", icon: IChart, label: t("nav.reports") }] },
-    { section: t("nav.system"), items: [{ id: "dataModel", icon: IDatabase, label: t("nav.dataModel") }] },
+    {
+      section: t("nav.system"),
+      items: [
+        { id: "dataModel", icon: IDatabase, label: t("nav.dataModel") },
+        { id: "blueprint", icon: ILayers, label: t("nav.blueprint") },
+      ],
+    },
   ];
 
   const saveEmployee = (e: Employee, isNew: boolean) => {
@@ -228,26 +264,33 @@ function Shell({ onLogout }: { onLogout: () => void }) {
               <div className="space-y-0.5">
                 {group.items.map((item) => {
                   const isActive = view === item.id;
+                  const locked = !canAccess(role, item.id);
                   return (
                     <button
                       key={item.id}
-                      onClick={() => setView(item.id)}
+                      onClick={() => (locked ? notify(t("rb.locked"), "warn") : setView(item.id))}
+                      title={locked ? t("rb.locked") : item.label}
                       className={`relative w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-[13px] font-semibold transition-all cursor-pointer ${
-                        isActive ? "bg-white/10 text-white" : "text-pine-200/75 hover:text-white hover:bg-white/[0.06]"
+                        locked
+                          ? "text-pine-200/30 cursor-not-allowed"
+                          : isActive
+                            ? "bg-white/10 text-white"
+                            : "text-pine-200/75 hover:text-white hover:bg-white/[0.06]"
                       }`}
                     >
                       <span
                         className={`absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full bg-marigold-400 transition-all ${
-                          isActive ? "h-5 opacity-100" : "h-0 opacity-0"
+                          isActive && !locked ? "h-5 opacity-100" : "h-0 opacity-0"
                         }`}
                       />
-                      <item.icon size={16} className={isActive ? "text-marigold-300" : ""} />
-                      {item.label}
-                      {item.badge ? (
+                      <item.icon size={16} className={isActive && !locked ? "text-marigold-300" : ""} />
+                      <span className={locked ? "line-through decoration-pine-200/25" : ""}>{item.label}</span>
+                      {item.badge && !locked ? (
                         <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-marigold-400 text-pine-950 text-[10px] font-bold flex items-center justify-center">
                           {item.badge}
                         </span>
                       ) : null}
+                      {locked && <ILock size={12} className="ml-auto text-pine-200/30" />}
                     </button>
                   );
                 })}
@@ -395,6 +438,47 @@ function Shell({ onLogout }: { onLogout: () => void }) {
 
           <LangSwitch />
 
+          {/* role switcher (RBAC) */}
+          <div className="relative hidden sm:block">
+            <button
+              onClick={() => setRoleMenu((o) => !o)}
+              title={t("rb.changeRole")}
+              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-[11.5px] font-bold transition-all cursor-pointer ${
+                roleMenu ? "bg-pine-600 text-white border-pine-700" : "bg-surface border-line text-inksoft hover:border-pine-400"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full" style={{ background: ROLE_COLOR[role] }} />
+              {t("role." + role)}
+              <IChevD size={11} className="opacity-70" />
+            </button>
+            {roleMenu && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setRoleMenu(false)} />
+                <div className="absolute right-0 top-full mt-2 w-[230px] card shadow-2xl z-50 anim-pop overflow-hidden">
+                  <div className="label-xs px-3.5 pt-2.5 pb-1">{t("rb.changeRole")}</div>
+                  {ROLE_ORDER.map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => changeRole(r)}
+                      className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-pine-50 transition-colors cursor-pointer ${
+                        r === role ? "bg-pine-50/70" : ""
+                      }`}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: ROLE_COLOR[r] }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12.5px] font-semibold text-ink">{t("role." + r)}</div>
+                        <div className="text-[10.5px] text-mute">
+                          {ROLE_VIEWS[r].length} {t("rb.mods")}
+                        </div>
+                      </div>
+                      {r === role && <ICheck size={14} className="text-pine-600 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           <span className="hidden md:block font-mono text-[13px] font-semibold text-inksoft tabular-nums w-[74px] text-center">
             {now.toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}
           </span>
@@ -452,18 +536,25 @@ function Shell({ onLogout }: { onLogout: () => void }) {
 
         {/* mobile nav */}
         <nav className="lg:hidden flex gap-1 px-3 py-2 bg-surface border-b border-line overflow-x-auto shrink-0">
-          {NAV.flatMap((g) => g.items).map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setView(item.id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                view === item.id ? "bg-pine-600 text-white" : "text-inksoft hover:bg-pine-50"
-              }`}
-            >
-              <item.icon size={14} />
-              {item.label}
-            </button>
-          ))}
+          {NAV.flatMap((g) => g.items).map((item) => {
+            const locked = !canAccess(role, item.id);
+            return (
+              <button
+                key={item.id}
+                onClick={() => (locked ? notify(t("rb.locked"), "warn") : setView(item.id))}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  locked
+                    ? "text-mute/50 line-through"
+                    : view === item.id
+                      ? "bg-pine-600 text-white"
+                      : "text-inksoft hover:bg-pine-50"
+                }`}
+              >
+                {locked ? <ILock size={12} /> : <item.icon size={14} />}
+                {item.label}
+              </button>
+            );
+          })}
           <button
             onClick={() => setView("mobile")}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap transition-all cursor-pointer ${
@@ -513,6 +604,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
               />
             )}
             {view === "dataModel" && <DataModel notify={notify} />}
+            {view === "blueprint" && <Blueprint role={role} onSimulate={changeRole} />}
           </div>
         </main>
       </div>
