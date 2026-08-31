@@ -225,6 +225,20 @@ export const ILayers = make(
 
 export const IDot = make(<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />);
 
+export const ICamera = make(
+  <>
+    <path d="M4 8h2.5l1.5-2.5h8L17.5 8H20a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 20H4a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 4 8Z" />
+    <circle cx="12" cy="13.5" r="3.5" />
+  </>,
+);
+
+export const IVideo = make(
+  <>
+    <rect x="3" y="6" width="13" height="12" rx="2.5" />
+    <path d="m16 10.5 5-3v9l-5-3" />
+  </>,
+);
+
 export const ICopy = make(
   <>
     <rect x="9" y="9" width="11" height="11" rx="2" />

@@ -25,6 +25,7 @@ import {
   IClock,
   IDatabase,
   IGrid,
+  ILayers,
   ILogout,
   IPhone2,
   IPlay,
@@ -45,6 +46,7 @@ import Dashboard from "./views/Dashboard";
 import DataModel from "./views/DataModel";
 import { KioskPreview } from "./views/DevicePreviews";
 import Documents from "./views/Documents";
+import Ecosystem from "./views/Ecosystem";
 import Employees from "./views/Employees";
 import Expenses from "./views/Expenses";
 import Incidents from "./views/Incidents";
@@ -70,7 +72,8 @@ type View =
   | "incidents"
   | "reports"
   | "mobile"
-  | "dataModel";
+  | "dataModel"
+  | "ecosystem";
 interface Toast {
   id: number;
   msg: string;
@@ -168,6 +171,10 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   );
 
   const NAV: { section: string; items: { id: View; icon: typeof IGrid; label: string; badge?: number }[] }[] = [
+    {
+      section: t("nav.ecosystem"),
+      items: [{ id: "ecosystem", icon: ILayers, label: t("nav.ecoApps") }],
+    },
     {
       section: t("nav.operation"),
       items: [
@@ -473,6 +480,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         {/* content */}
         <main className="flex-1 overflow-y-auto px-4 lg:px-6 py-5">
           <div className="max-w-[1240px] mx-auto">
+            {view === "ecosystem" && <Ecosystem notify={notify} />}
             {view === "dashboard" && <Dashboard employees={employees} shifts={shifts} attendance={attendance} events={events} />}
             {view === "employees" && (
               <Employees employees={employees} onSave={saveEmployee} notify={notify} focusId={focusId} onFocusDone={() => setFocusId(null)} />
