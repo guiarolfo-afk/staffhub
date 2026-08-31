@@ -305,3 +305,245 @@ export function downloadCSV(filename: string, rows: (string | number)[][]) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+/* ================= organizations ================= */
+
+export interface Venue {
+  id: string;
+  name: string;
+  type: string;
+  city: string;
+  staff: number;
+}
+
+export const VENUES: Venue[] = [
+  { id: "v1", name: "La Brasa · Centro", type: "Restaurante", city: "CDMX", staff: 34 },
+  { id: "v2", name: "Hotel Mirador", type: "Hotel", city: "Cartagena", staff: 58 },
+  { id: "v3", name: "Brasa Market", type: "Retail", city: "Lisboa", staff: 21 },
+];
+
+/* ================= payroll ================= */
+
+export type PayStatus = "paid" | "processing" | "pending";
+
+export interface Payslip {
+  id: string;
+  empId: string;
+  base: number;
+  extras: number;
+  deductions: number;
+  net: number;
+  status: PayStatus;
+}
+
+export function makePayslips(emps: Employee[]): Payslip[] {
+  return emps.map((e, i) => {
+    const base = Math.round(e.rate * 160);
+    const extras = i % 3 === 0 ? Math.round(base * 0.06) : i % 4 === 0 ? Math.round(base * 0.11) : 0;
+    const deductions = Math.round(base * 0.13);
+    return {
+      id: "p" + e.id,
+      empId: e.id,
+      base,
+      extras,
+      deductions,
+      net: base + extras - deductions,
+      status: i % 5 === 4 ? "processing" : i % 7 === 6 ? "pending" : "paid",
+    } as Payslip;
+  });
+}
+
+/* ================= expenses (AI) ================= */
+
+export type ExpStatus = "pending" | "approved" | "rejected";
+
+export interface Expense {
+  id: string;
+  empId: string;
+  date: string;
+  amount: number;
+  concept: string;
+  category: string; // i18n key suffix: exp.cat.*
+  confidence: number; // AI %
+  source: "ocr" | "manual";
+  status: ExpStatus;
+}
+
+export const EXPENSES: Expense[] = [
+  { id: "x1", empId: "e2", date: "2025-01-22", amount: 48.6, concept: "Mercado proveedores — hierbas frescas", category: "food", confidence: 97, source: "ocr", status: "pending" },
+  { id: "x2", empId: "e5", date: "2025-01-22", amount: 126.0, concept: "Uber aeropuerto — traslado huésped VIP", category: "transport", confidence: 93, source: "ocr", status: "pending" },
+  { id: "x3", empId: "e8", date: "2025-01-21", amount: 89.9, concept: "Cristalería rota — reposición", category: "supplies", confidence: 88, source: "ocr", status: "approved" },
+  { id: "x4", empId: "e11", date: "2025-01-21", amount: 34.5, concept: "Insumos limpieza pisos 3–5", category: "supplies", confidence: 91, source: "manual", status: "approved" },
+  { id: "x5", empId: "e14", date: "2025-01-20", amount: 210.0, concept: "Reparación máquina espresso", category: "maintenance", confidence: 96, source: "ocr", status: "pending" },
+  { id: "x6", empId: "e3", date: "2025-01-19", amount: 57.2, concept: "Vinos cata proveedor — 6 botellas", category: "food", confidence: 74, source: "ocr", status: "rejected" },
+  { id: "x7", empId: "e9", date: "2025-01-18", amount: 19.9, concept: "Impresión menús temporada", category: "marketing", confidence: 95, source: "manual", status: "approved" },
+];
+
+export const EXP_CATS = ["food", "transport", "supplies", "maintenance", "marketing"] as const;
+
+export const EXP_CAT_COLOR: Record<string, string> = {
+  food: "#256b52",
+  transport: "#54688c",
+  supplies: "#e89f2e",
+  maintenance: "#ce5638",
+  marketing: "#7b5ea7",
+};
+
+/* ================= tasks & checklists ================= */
+
+export interface CheckItem {
+  id: string;
+  label: string;
+  done: boolean;
+}
+
+export interface Checklist {
+  id: string;
+  title: string;
+  area: Dept;
+  assignee: string;
+  due: string;
+  items: CheckItem[];
+}
+
+export const CHECKLISTS: Checklist[] = [
+  {
+    id: "c1",
+    title: "tsk.opening",
+    area: "hall",
+    assignee: "Lucía Fernández",
+    due: "11:00",
+    items: [
+      { id: "c1a", label: "tsk.open1", done: true },
+      { id: "c1b", label: "tsk.open2", done: true },
+      { id: "c1c", label: "tsk.open3", done: true },
+      { id: "c1d", label: "tsk.open4", done: false },
+      { id: "c1e", label: "tsk.open5", done: false },
+    ],
+  },
+  {
+    id: "c2",
+    title: "tsk.closing",
+    area: "kitchen",
+    assignee: "João Silva",
+    due: "23:30",
+    items: [
+      { id: "c2a", label: "tsk.close1", done: true },
+      { id: "c2b", label: "tsk.close2", done: false },
+      { id: "c2c", label: "tsk.close3", done: false },
+      { id: "c2d", label: "tsk.close4", done: false },
+    ],
+  },
+  {
+    id: "c3",
+    title: "tsk.bar",
+    area: "bar",
+    assignee: "Fernanda Costa",
+    due: "18:00",
+    items: [
+      { id: "c3a", label: "tsk.bar1", done: true },
+      { id: "c3b", label: "tsk.bar2", done: true },
+      { id: "c3c", label: "tsk.bar3", done: false },
+    ],
+  },
+];
+
+export interface Task {
+  id: string;
+  title: string;
+  assignee: string;
+  dept: Dept;
+  priority: "high" | "medium" | "low";
+  status: "todo" | "doing" | "done";
+}
+
+export const TASKS: Task[] = [
+  { id: "t1", title: "tsk.job1", assignee: "Valentina Ríos", dept: "reception", priority: "high", status: "doing" },
+  { id: "t2", title: "tsk.job2", assignee: "Mateo Herrera", dept: "hall", priority: "medium", status: "todo" },
+  { id: "t3", title: "tsk.job3", assignee: "João Silva", dept: "kitchen", priority: "high", status: "doing" },
+  { id: "t4", title: "tsk.job4", assignee: "Carla Mendes", dept: "reception", priority: "low", status: "done" },
+  { id: "t5", title: "tsk.job5", assignee: "Diego Torres", dept: "floors", priority: "medium", status: "todo" },
+  { id: "t6", title: "tsk.job6", assignee: "Fernanda Costa", dept: "bar", priority: "medium", status: "done" },
+];
+
+/* ================= training (TikTok feed) ================= */
+
+export interface Lesson {
+  id: string;
+  title: string;
+  desc: string;
+  duration: string;
+  views: string;
+  likes: number;
+  category: string; // trn.cat.*
+  cover: string;
+}
+
+const IMG_BARISTA = "https://image.qwenlm.ai/generated-images/6be8b017-85f6-466a-8756-5f08b7c43dba/_result.png";
+const IMG_SAFETY = "https://image.qwenlm.ai/generated-images/1e65f1b2-b8f2-49b0-b0aa-2060fefc14e8/_result.png";
+const IMG_LOBBY = "https://image.qwenlm.ai/generated-images/bd042e0f-6b78-4570-a82b-592783269124/_result.png";
+const IMG_WINE = "https://image.qwenlm.ai/generated-images/cea5937b-c7e0-4be7-a3d0-d69f589729a7/_result.png";
+
+export const LESSONS: Lesson[] = [
+  { id: "l1", title: "trn.t1", desc: "trn.d1", duration: "0:42", views: "2.3k", likes: 184, category: "service", cover: IMG_BARISTA },
+  { id: "l2", title: "trn.t2", desc: "trn.d2", duration: "0:58", views: "4.1k", likes: 312, category: "safety", cover: IMG_SAFETY },
+  { id: "l3", title: "trn.t3", desc: "trn.d3", duration: "1:05", views: "1.8k", likes: 97, category: "service", cover: IMG_LOBBY },
+  { id: "l4", title: "trn.t4", desc: "trn.d4", duration: "0:37", views: "3.4k", likes: 251, category: "service", cover: IMG_WINE },
+  { id: "l5", title: "trn.t5", desc: "trn.d5", duration: "1:12", views: "986", likes: 64, category: "safety", cover: IMG_SAFETY },
+  { id: "l6", title: "trn.t6", desc: "trn.d6", duration: "0:51", views: "2.9k", likes: 203, category: "ops", cover: IMG_LOBBY },
+  { id: "l7", title: "trn.t7", desc: "trn.d7", duration: "0:45", views: "1.2k", likes: 88, category: "ops", cover: IMG_BARISTA },
+  { id: "l8", title: "trn.t8", desc: "trn.d8", duration: "1:20", views: "5.6k", likes: 429, category: "service", cover: IMG_WINE },
+];
+
+export const TRN_CATS = ["all", "service", "safety", "ops"] as const;
+
+/* ================= documents & e-signature ================= */
+
+export type SignStatus = "signed" | "pending" | "draft";
+
+export interface Doc {
+  id: string;
+  name: string;
+  kind: string; // doc.kind.*
+  empId: string;
+  version: string;
+  updated: string;
+  expires: string | null;
+  sign: SignStatus;
+  size: string;
+}
+
+export const DOCS: Doc[] = [
+  { id: "d1", name: "Contrato laboral — Andrés Quispe", kind: "contract", empId: "e7", version: "v2.1", updated: "2025-01-10", expires: null, sign: "pending", size: "412 KB" },
+  { id: "d2", name: "Certificado manipulación de alimentos", kind: "certificate", empId: "e7", version: "v1.0", updated: "2024-02-01", expires: "2025-02-01", sign: "signed", size: "198 KB" },
+  { id: "d3", name: "Reglamento interno 2025", kind: "policy", empId: "", version: "v3.0", updated: "2025-01-02", expires: null, sign: "pending", size: "1.2 MB" },
+  { id: "d4", name: "Acuerdo confidencialidad — Carla Mendes", kind: "nda", empId: "e5", version: "v1.2", updated: "2024-11-18", expires: null, sign: "signed", size: "264 KB" },
+  { id: "d5", name: "Alta fiscal — Fernanda Costa", kind: "fiscal", empId: "e3", version: "v1.0", updated: "2025-01-15", expires: null, sign: "draft", size: "340 KB" },
+  { id: "d6", name: "Evaluación desempeño Q4 — João Silva", kind: "review", empId: "e2", version: "v1.1", updated: "2024-12-28", expires: null, sign: "signed", size: "520 KB" },
+];
+
+/* ================= incidents (anonymous) ================= */
+
+export type IncStatus = "received" | "review" | "resolved";
+
+export interface Incident {
+  id: string;
+  code: string;
+  category: string; // inc.cat.*
+  date: string;
+  status: IncStatus;
+  summary: string;
+}
+
+export const INCIDENTS: Incident[] = [
+  { id: "i1", code: "CASO-7F3K", category: "inc.cat.safety", date: "2025-01-19", status: "review", summary: "inc.sum1" },
+  { id: "i2", code: "CASO-2Q9M", category: "inc.cat.conduct", date: "2025-01-12", status: "received", summary: "inc.sum2" },
+  { id: "i3", code: "CASO-8T4B", category: "inc.cat.equipment", date: "2024-12-30", status: "resolved", summary: "inc.sum3" },
+];
+
+export function caseCode() {
+  const chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  let s = "";
+  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return "CASO-" + s;
+}

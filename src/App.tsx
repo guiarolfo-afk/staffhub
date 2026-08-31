@@ -3,24 +3,35 @@ import {
   ATTENDANCE,
   EMPLOYEES,
   SHIFTS,
+  VENUES,
   nowTime,
   type AttRecord,
   type Employee,
   type LiveEvent,
   type Shift,
+  type Venue,
 } from "./data";
 import { LangProvider, useI18n } from "./i18n";
 import {
+  IBanknote,
   IBell,
   IBuilding,
   ICalendar,
   IChart,
   IChat,
+  ICheck,
+  IChevD,
+  IClipboard,
   IClock,
   IGrid,
   ILogout,
   IPhone2,
+  IPlay,
+  IReceipt,
   ISearch,
+  IShield,
+  ISign,
+  IStore,
   ITablet,
   IUsers,
   IX,
@@ -31,12 +42,30 @@ import Attendance from "./views/Attendance";
 import ChatView from "./views/ChatView";
 import Dashboard from "./views/Dashboard";
 import { KioskPreview, PhonePreview } from "./views/DevicePreviews";
+import Documents from "./views/Documents";
 import Employees from "./views/Employees";
+import Expenses from "./views/Expenses";
+import Incidents from "./views/Incidents";
 import Login from "./views/Login";
+import Payroll from "./views/Payroll";
 import Reports from "./views/Reports";
 import Schedule from "./views/Schedule";
+import TasksView from "./views/TasksView";
+import Training from "./views/Training";
 
-type View = "dashboard" | "employees" | "schedule" | "attendance" | "chat" | "reports";
+type View =
+  | "dashboard"
+  | "employees"
+  | "schedule"
+  | "attendance"
+  | "payroll"
+  | "expenses"
+  | "tasks"
+  | "chat"
+  | "training"
+  | "documents"
+  | "incidents"
+  | "reports";
 interface Toast {
   id: number;
   msg: string;
@@ -90,6 +119,8 @@ function Shell({ onLogout }: { onLogout: () => void }) {
   const [focusId, setFocusId] = useState<string | null>(null);
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [kioskOpen, setKioskOpen] = useState(false);
+  const [venue, setVenue] = useState<Venue>(VENUES[0]);
+  const [venueOpen, setVenueOpen] = useState(false);
   const toastId = useRef(0);
   const tickCount = useRef(0);
 
@@ -132,7 +163,7 @@ function Shell({ onLogout }: { onLogout: () => void }) {
     [q, employees],
   );
 
-  const NAV: { section: string; items: { id: View; icon: typeof IGrid; label: string }[] }[] = [
+  const NAV: { section: string; items: { id: View; icon: typeof IGrid; label: string; badge?: number }[] }[] = [
     {
       section: t("nav.operation"),
       items: [
@@ -142,7 +173,28 @@ function Shell({ onLogout }: { onLogout: () => void }) {
         { id: "attendance", icon: IClock, label: t("nav.attendance") },
       ],
     },
-    { section: t("nav.comms"), items: [{ id: "chat", icon: IChat, label: t("nav.chat") }] },
+    {
+      section: t("nav.admin"),
+      items: [
+        { id: "payroll", icon: IBanknote, label: t("nav.payroll") },
+        { id: "expenses", icon: IReceipt, label: t("nav.expenses") },
+        { id: "tasks", icon: IClipboard, label: t("nav.tasks") },
+      ],
+    },
+    {
+      section: t("nav.comms"),
+      items: [
+        { id: "chat", icon: IChat, label: t("nav.chat"), badge: 3 },
+        { id: "training", icon: IPlay, label: t("nav.training") },
+      ],
+    },
+    {
+      section: t("nav.compliance"),
+      items: [
+        { id: "documents", icon: ISign, label: t("nav.documents") },
+        { id: "incidents", icon: IShield, label: t("nav.incidents") },
+      ],
+    },
     { section: t("nav.analysis"), items: [{ id: "reports", icon: IChart, label: t("nav.reports") }] },
   ];
 
@@ -179,11 +231,11 @@ function Shell({ onLogout }: { onLogout: () => void }) {
                       />
                       <item.icon size={16} className={isActive ? "text-marigold-300" : ""} />
                       {item.label}
-                      {item.id === "chat" && (
+                      {item.badge ? (
                         <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-marigold-400 text-pine-950 text-[10px] font-bold flex items-center justify-center">
-                          3
+                          {item.badge}
                         </span>
-                      )}
+                      ) : null}
                     </button>
                   );
                 })}
@@ -244,10 +296,48 @@ function Shell({ onLogout }: { onLogout: () => void }) {
           <div className="lg:hidden">
             <Wordmark compact />
           </div>
-          <span className="hidden md:flex items-center gap-1.5 text-[12px] font-semibold text-inksoft bg-pine-50 border border-line rounded-full px-3 py-1.5">
-            <IBuilding size={13} className="text-pine-600" />
-            {t("venue")}
-          </span>
+          <div className="relative hidden md:block">
+            <button
+              onClick={() => setVenueOpen((o) => !o)}
+              className={`flex items-center gap-1.5 text-[12px] font-semibold rounded-full px-3 py-1.5 border transition-all cursor-pointer ${
+                venueOpen ? "bg-pine-600 text-white border-pine-700" : "text-inksoft bg-pine-50 border-line hover:border-pine-400"
+              }`}
+            >
+              <IStore size={13} className={venueOpen ? "text-marigold-300" : "text-pine-600"} />
+              {venue.name}
+              <IChevD size={12} className="opacity-70" />
+            </button>
+            {venueOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setVenueOpen(false)} />
+                <div className="absolute left-0 top-full mt-2 w-[250px] card shadow-2xl z-50 anim-pop overflow-hidden">
+                  <div className="label-xs px-3.5 pt-2.5 pb-1">{t("login.appAdmin")} · 3 venues</div>
+                  {VENUES.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => {
+                        setVenue(v);
+                        setVenueOpen(false);
+                        notify(`${t("ven.switched")} ${v.name}`);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-pine-50 transition-colors cursor-pointer ${
+                        v.id === venue.id ? "bg-pine-50/70" : ""
+                      }`}
+                    >
+                      <span className={`w-8 h-8 rounded-lg flex items-center justify-center ${v.id === venue.id ? "bg-pine-600 text-white" : "bg-pine-50 text-pine-600"}`}>
+                        <IBuilding size={15} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12.5px] font-semibold text-ink truncate">{v.name}</div>
+                        <div className="text-[10.5px] text-mute">{v.type} · {v.city} · {v.staff} staff</div>
+                      </div>
+                      {v.id === venue.id && <ICheck size={14} className="text-pine-600 shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           {/* search */}
           <div className="relative flex-1 max-w-[380px] ml-auto lg:ml-6">
@@ -380,7 +470,13 @@ function Shell({ onLogout }: { onLogout: () => void }) {
               />
             )}
             {view === "attendance" && <Attendance employees={employees} attendance={attendance} notify={notify} />}
+            {view === "payroll" && <Payroll employees={employees} notify={notify} />}
+            {view === "expenses" && <Expenses employees={employees} notify={notify} />}
+            {view === "tasks" && <TasksView notify={notify} />}
             {view === "chat" && <ChatView />}
+            {view === "training" && <Training />}
+            {view === "documents" && <Documents notify={notify} />}
+            {view === "incidents" && <Incidents notify={notify} />}
             {view === "reports" && <Reports employees={employees} notify={notify} />}
           </div>
         </main>

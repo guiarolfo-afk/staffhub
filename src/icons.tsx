@@ -224,3 +224,73 @@ export const ILayers = make(
 );
 
 export const IDot = make(<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />);
+
+export const IBanknote = make(
+  <>
+    <rect x="2.5" y="6" width="19" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2.8" />
+    <path d="M6 9.5h.01M18 14.5h.01" />
+  </>,
+);
+
+export const IReceipt = make(
+  <>
+    <path d="M6 3.5h12V20l-2.4-1.6L13.2 20l-2.4-1.6L8.4 20 6 18.4V3.5Z" />
+    <path d="M9 8h6M9 11.5h6M9 15h3.5" />
+  </>,
+);
+
+export const IClipboard = make(
+  <>
+    <rect x="5" y="4.5" width="14" height="16.5" rx="2" />
+    <path d="M9 4.5V3.2A1.2 1.2 0 0 1 10.2 2h3.6A1.2 1.2 0 0 1 15 3.2v1.3M9 11h6M9 15h4" />
+  </>,
+);
+
+export const IPlay = make(<path d="M8.5 5.5v13l10-6.5-10-6.5Z" />);
+
+export const ISign = make(
+  <>
+    <path d="M13.5 3.5H6a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+    <path d="m18.2 3.8 2 2L12 14l-2.7.7L10 12l8.2-8.2Z" />
+  </>,
+);
+
+export const IShield = make(
+  <>
+    <path d="M12 3 5 5.8v5.4c0 4.6 3 8 7 9.8 4-1.8 7-5.2 7-9.8V5.8L12 3Z" />
+    <path d="m9 11.5 2.2 2.2L15.5 9.5" />
+  </>,
+);
+
+export const IStore = make(
+  <>
+    <path d="M4 8.5 5.5 4h13L20 8.5" />
+    <path d="M4 8.5a2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.3 0" />
+    <path d="M5 11v9h14v-9M10 20v-5.5h4V20" />
+  </>,
+);
+
+export const IHeart = make(
+  <path d="M12 20.5S4 15.5 4 9.8A4.3 4.3 0 0 1 8.3 5.5c1.6 0 3 .9 3.7 2.2.7-1.3 2.1-2.2 3.7-2.2A4.3 4.3 0 0 1 20 9.8c0 5.7-8 10.7-8 10.7Z" />,
+);
+
+export const IEye = make(
+  <>
+    <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z" />
+    <circle cx="12" cy="12" r="2.8" />
+  </>,
+);
+
+export const IScan = make(
+  <>
+    <path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M3 12h18" />
+  </>,
+);
+
+export const ILock = make(
+  <>
+    <rect x="5.5" y="10.5" width="13" height="10" rx="2" />
+    <path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5M12 14.5v2.5" />
+  </>,
+);
