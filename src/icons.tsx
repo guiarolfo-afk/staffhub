@@ -225,6 +225,24 @@ export const ILayers = make(
 
 export const IDot = make(<circle cx="12" cy="12" r="4" fill="currentColor" stroke="none" />);
 
+export const IUser = make(
+  <>
+    <circle cx="12" cy="8" r="3.6" />
+    <path d="M5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6" />
+  </>,
+);
+
+export const IFolder = make(
+  <path d="M3.5 6.5A1.8 1.8 0 0 1 5.3 4.7h4l2 2.4h7.4a1.8 1.8 0 0 1 1.8 1.8v8.6a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8V6.5Z" />,
+);
+
+export const IFile = make(
+  <>
+    <path d="M6 3.5h8l4 4v13H6v-17Z" />
+    <path d="M14 3.5v4h4" />
+  </>,
+);
+
 export const IBanknote = make(
   <>
     <rect x="2.5" y="6" width="19" height="12" rx="2" />

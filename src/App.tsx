@@ -491,7 +491,15 @@ function Shell({ onLogout }: { onLogout: () => void }) {
             {view === "documents" && <Documents notify={notify} />}
             {view === "incidents" && <Incidents notify={notify} />}
             {view === "reports" && <Reports employees={employees} notify={notify} />}
-            {view === "mobile" && <MobileLab onExit={() => setView("dashboard")} />}
+            {view === "mobile" && (
+              <MobileLab
+                onExit={() => setView("dashboard")}
+                notify={notify}
+                onKiosk={() => setKioskOpen(true)}
+                employees={employees}
+                attendance={attendance}
+              />
+            )}
           </div>
         </main>
       </div>
